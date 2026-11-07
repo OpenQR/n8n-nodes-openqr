@@ -333,3 +333,107 @@ test('the QR code list search filters by name and passes the cursor on', async (
 		paginationToken: 'c2',
 	});
 });
+
+// Update: GET the live code first, keep what can be read back, replace content and design.
+const live = (extra = {}) =>
+	ok({
+		data: {
+			id: 'km0yYX0',
+			name: 'Spring menu',
+			type: 'url',
+			qr_code_folder_id: 6,
+			domain_id: 3,
+			...extra,
+		},
+	});
+const update = (extra) => ({
+	resource: 'qrCode',
+	operation: 'update',
+	qrCodeId: { mode: 'list', value: 'km0yYX0' },
+	type: 'url',
+	...extra,
+});
+
+test('Update changing only the URL keeps the name, folder and domain', async () => {
+	const { ctx, output } = await run(update({ url: 'https://openqr.io/new' }), [live(), created()]);
+	assert.equal(ctx.calls[0].method, 'GET');
+	assert.equal(ctx.calls[0].url, 'http://api.test/api/v1/qr-codes/km0yYX0');
+	assert.equal(ctx.calls[1].method, 'POST');
+	assert.equal(ctx.calls[1].url, 'http://api.test/api/v1/qr-codes/km0yYX0');
+	assert.deepEqual(ctx.calls[1].body, {
+		name: 'Spring menu',
+		data: { url: 'https://openqr.io/new' },
+		qr_code_folder_id: 6,
+		domain_id: 3,
+	});
+	assert.equal(output[0].json.id, 'km0yYX0');
+});
+
+test('Update keeps null folder and domain as null', async () => {
+	const { ctx } = await run(update({ url: 'https://openqr.io' }), [
+		live({ qr_code_folder_id: null, domain_id: null }),
+		created(),
+	]);
+	assert.equal(ctx.calls[1].body.qr_code_folder_id, null);
+	assert.equal(ctx.calls[1].body.domain_id, null);
+});
+
+test('Update Fields override name, folder and domain, and Design is sent', async () => {
+	const { ctx } = await run(
+		update({
+			url: 'https://openqr.io',
+			updateFields: { name: 'Summer menu', folder: { mode: 'id', value: '9' }, domainId: 0 },
+			design: { module: 'dots', foregroundColor: '#1f2937' },
+		}),
+		[live(), created()],
+	);
+	assert.deepEqual(ctx.calls[1].body, {
+		name: 'Summer menu',
+		data: { url: 'https://openqr.io' },
+		qr_code_folder_id: 9,
+		domain_id: null,
+		design: { module: 'dots', foreground_color: '#1f2937' },
+	});
+});
+
+test('Remove From Folder sends a null folder, even with a folder picked', async () => {
+	const { ctx } = await run(
+		update({
+			url: 'https://openqr.io',
+			updateFields: { removeFromFolder: true, folder: { mode: 'id', value: '9' } },
+		}),
+		[live(), created()],
+	);
+	assert.equal(ctx.calls[1].body.qr_code_folder_id, null);
+});
+
+test('Update stops after the GET when Type does not match the code', async () => {
+	await assert.rejects(
+		run(update({ type: 'url_static', url: 'https://openqr.io' }), [live()]),
+		/type is url, but Type is set to url_static \[item 0\]/,
+	);
+});
+
+test('Update stops on dashboard-only types such as pdf', async () => {
+	await assert.rejects(
+		run(update({ url: 'https://openqr.io' }), [live({ type: 'pdf' })]),
+		/This pdf code can only be edited in the OpenQR\.io dashboard/,
+	);
+});
+
+test('Update of a dynamic vCard keeps the current page unless a new one is given', async () => {
+	const { ctx } = await run(
+		[update({ type: 'vcard' }), update({ type: 'vcard', updateFields: { pageId: 15 } })],
+		[live({ type: 'vcard' }), created(), live({ type: 'vcard' }), created()],
+	);
+	assert.deepEqual(ctx.calls[1].body.data, {});
+	assert.equal('qr_page_id' in ctx.calls[1].body, false);
+	assert.equal(ctx.calls[3].body.qr_page_id, 15);
+});
+
+test('Update checks a new name before sending', async () => {
+	await assert.rejects(
+		run(update({ url: 'https://openqr.io', updateFields: { name: 'Hi' } }), [live()]),
+		/5 to 255 characters long/,
+	);
+});

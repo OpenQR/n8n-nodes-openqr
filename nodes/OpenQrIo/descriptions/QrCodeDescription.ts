@@ -5,6 +5,17 @@ import { qrCodeTypeOptions } from './QrCodeTypes';
 /** Operations that take the full QR code body: name, type, data, options and design. */
 export const BODY_OPERATIONS = ['create', 'preview', 'savePreview'];
 
+/** Operations that show the per-type content fields and Design. */
+export const CONTENT_OPERATIONS = [...BODY_OPERATIONS, 'update'];
+
+const forContent = (types?: string[]) => ({
+	show: {
+		resource: ['qrCode'],
+		operation: CONTENT_OPERATIONS,
+		...(types ? { type: types } : {}),
+	},
+});
+
 const forBody = (types?: string[]) => ({
 	show: {
 		resource: ['qrCode'],
@@ -58,6 +69,13 @@ export const qrCodeOperations: INodeProperties[] = [
 				description:
 					'Save a previewed QR code, keeping the short link shown in the preview. Counts towards the plan limit.',
 				action: 'Save a previewed QR code',
+			},
+			{
+				name: 'Update',
+				value: 'update',
+				description:
+					'Change a QR code’s content, name, folder, domain or design. A dynamic code’s printed copies open the new content.',
+				action: 'Update a QR code',
 			},
 		],
 		default: 'create',
@@ -141,7 +159,7 @@ const dataFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. https://openqr.io',
 		description: 'Website the code opens, up to 350 characters',
-		displayOptions: forBody(['url', 'url_static']),
+		displayOptions: forContent(['url', 'url_static']),
 	},
 	{
 		displayName: 'Text',
@@ -151,7 +169,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description: 'Plain text shown when the code is scanned, up to 350 characters',
-		displayOptions: forBody(['text', 'text_static']),
+		displayOptions: forContent(['text', 'text_static']),
 	},
 	{
 		displayName: 'Phone Number',
@@ -161,7 +179,7 @@ const dataFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. +1234567890',
 		description: 'Number to call or text, 3 to 32 characters',
-		displayOptions: forBody(['call', 'call_static', 'sms', 'sms_static']),
+		displayOptions: forContent(['call', 'call_static', 'sms', 'sms_static']),
 	},
 	{
 		displayName: 'Email Address',
@@ -171,7 +189,7 @@ const dataFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. name@email.com',
 		description: 'Address the email is sent to',
-		displayOptions: forBody(['email', 'email_static']),
+		displayOptions: forContent(['email', 'email_static']),
 	},
 	{
 		displayName: 'Subject',
@@ -180,7 +198,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description: 'Email subject, up to 180 characters',
-		displayOptions: forBody(['email', 'email_static']),
+		displayOptions: forContent(['email', 'email_static']),
 	},
 	{
 		displayName: 'Message',
@@ -190,7 +208,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description: 'Message text, up to 500 characters',
-		displayOptions: forBody(['sms', 'sms_static', 'email', 'email_static']),
+		displayOptions: forContent(['sms', 'sms_static', 'email', 'email_static']),
 	},
 	{
 		displayName: 'Network Name',
@@ -200,7 +218,7 @@ const dataFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. OfficeGuest',
 		description: 'Wi-Fi network name (SSID), up to 200 characters',
-		displayOptions: forBody(['wifi', 'wifi_static']),
+		displayOptions: forContent(['wifi', 'wifi_static']),
 	},
 	{
 		displayName: 'Security',
@@ -213,7 +231,7 @@ const dataFields: INodeProperties[] = [
 			{ name: 'WPA/WPA2', value: 'WPA' },
 		],
 		default: 'WPA',
-		displayOptions: forBody(['wifi', 'wifi_static']),
+		displayOptions: forContent(['wifi', 'wifi_static']),
 	},
 	{
 		displayName: 'Password',
@@ -225,7 +243,7 @@ const dataFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['qrCode'],
-				operation: BODY_OPERATIONS,
+				operation: CONTENT_OPERATIONS,
 				type: ['wifi', 'wifi_static'],
 				wifiSecurity: ['WPA', 'WEP'],
 			},
@@ -237,7 +255,7 @@ const dataFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description: 'Whether the network is hidden',
-		displayOptions: forBody(['wifi', 'wifi_static']),
+		displayOptions: forContent(['wifi', 'wifi_static']),
 	},
 	{
 		displayName: 'Latitude',
@@ -247,7 +265,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: 0,
 		placeholder: 'e.g. 54.6872',
-		displayOptions: forBody(['geo', 'geo_static']),
+		displayOptions: forContent(['geo', 'geo_static']),
 	},
 	{
 		displayName: 'Longitude',
@@ -257,7 +275,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: 0,
 		placeholder: 'e.g. 25.2797',
-		displayOptions: forBody(['geo', 'geo_static']),
+		displayOptions: forContent(['geo', 'geo_static']),
 	},
 	{
 		displayName: 'Event Title',
@@ -266,7 +284,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description: 'Up to 100 characters',
-		displayOptions: forBody(['event_static']),
+		displayOptions: forContent(['event_static']),
 	},
 	{
 		displayName: 'Event URL',
@@ -276,7 +294,7 @@ const dataFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. https://openqr.io/events/launch',
 		description: 'Web page with the event details',
-		displayOptions: forBody(['event_static']),
+		displayOptions: forContent(['event_static']),
 	},
 	{
 		displayName: 'Location',
@@ -286,7 +304,7 @@ const dataFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. London',
 		description: 'Where the event takes place, up to 100 characters',
-		displayOptions: forBody(['event_static']),
+		displayOptions: forContent(['event_static']),
 	},
 	{
 		displayName: 'Start',
@@ -295,7 +313,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description: 'Start date and time',
-		displayOptions: forBody(['event_static']),
+		displayOptions: forContent(['event_static']),
 	},
 	{
 		displayName: 'End',
@@ -303,7 +321,7 @@ const dataFields: INodeProperties[] = [
 		type: 'dateTime',
 		default: '',
 		description: 'End date and time',
-		displayOptions: forBody(['event_static']),
+		displayOptions: forContent(['event_static']),
 	},
 	{
 		displayName: 'Event Description',
@@ -311,7 +329,7 @@ const dataFields: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		description: 'Up to 200 characters',
-		displayOptions: forBody(['event_static']),
+		displayOptions: forContent(['event_static']),
 	},
 	{
 		displayName: 'First Name',
@@ -319,7 +337,7 @@ const dataFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		displayOptions: forBody(['vcard_static']),
+		displayOptions: forContent(['vcard_static']),
 	},
 	{
 		displayName: 'Last Name',
@@ -327,7 +345,7 @@ const dataFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		displayOptions: forBody(['vcard_static']),
+		displayOptions: forContent(['vcard_static']),
 	},
 	{
 		displayName: 'Contact Details',
@@ -335,7 +353,7 @@ const dataFields: INodeProperties[] = [
 		type: 'collection',
 		placeholder: 'Add Detail',
 		default: {},
-		displayOptions: forBody(['vcard_static']),
+		displayOptions: forContent(['vcard_static']),
 		options: [
 			{ displayName: 'City', name: 'city', type: 'string', default: '' },
 			{ displayName: 'Company', name: 'company', type: 'string', default: '' },
@@ -430,7 +448,7 @@ const bodyFields: INodeProperties[] = [
 			folderLocator('folder', 'Folder to put the code in'),
 		],
 	},
-	designCollection(forBody().show),
+	designCollection(forContent().show),
 	{
 		displayName: 'Put Output File in Field',
 		name: 'binaryPropertyName',
@@ -494,8 +512,76 @@ const getAllFields: INodeProperties[] = [
 	},
 ];
 
+const forUpdate = { show: { resource: ['qrCode'], operation: ['update'] } };
+
+const updateFields: INodeProperties[] = [
+	{
+		displayName:
+			'Every update resets the design. Fill in Design with the code’s full look, or it goes back to the default black and white. Content must be filled in too: the API replaces it.',
+		name: 'updateNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: forUpdate,
+	},
+	{
+		displayName: 'Type',
+		name: 'type',
+		type: 'options',
+		required: true,
+		options: qrCodeTypeOptions,
+		default: 'url',
+		description:
+			'The code’s current type, which can’t be changed. It decides which content fields are shown. The node checks it against the code before updating.',
+		displayOptions: forUpdate,
+	},
+	{
+		displayName: 'Update Fields',
+		name: 'updateFields',
+		type: 'collection',
+		placeholder: 'Add Field',
+		default: {},
+		description: 'Anything not added here keeps its current value, except Design',
+		displayOptions: forUpdate,
+		options: [
+			{
+				displayName: 'Custom Domain ID',
+				name: 'domainId',
+				type: 'number',
+				default: 0,
+				description:
+					'ID of one of your custom domains for a dynamic code’s short link. Use 0 for the default domain.',
+			},
+			folderLocator('folder', 'Folder to move the code to'),
+			{
+				displayName: 'Landing Page ID',
+				name: 'pageId',
+				type: 'number',
+				default: 0,
+				description:
+					'For dynamic Event and vCard codes: ID of the landing page to open instead. Leave it out to keep the current page.',
+			},
+			{
+				displayName: 'Name',
+				name: 'name',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. Spring menu',
+				description: 'New name shown in the OpenQR.io dashboard, 5 to 255 characters',
+			},
+			{
+				displayName: 'Remove From Folder',
+				name: 'removeFromFolder',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to take the code out of its folder. Overrides Folder.',
+			},
+		],
+	},
+];
+
 export const qrCodeFields: INodeProperties[] = [
-	qrCodeLocator(['get', 'archive']),
+	qrCodeLocator(['get', 'archive', 'update']),
+	...updateFields,
 	...archiveFields,
 	...bodyFields,
 	...getAllFields,

@@ -55,12 +55,12 @@ export function qrCodeIdFrom(this: IExecuteFunctions, i: number): string {
 	return encodeURIComponent(id);
 }
 
-/** Builds the `data` object for a type, plus `qr_page_id` for the dynamic landing page types. */
+/** Builds the `data` object for a type from the content fields. */
 export function buildQrCodeData(
 	this: IExecuteFunctions,
 	type: string,
 	i: number,
-): { data: IDataObject; qrPageId?: number } {
+): { data: IDataObject } {
 	const param = (name: string, fallback: unknown = '') => this.getNodeParameter(name, i, fallback);
 	const str = (name: string) => String(param(name) ?? '');
 
@@ -116,31 +116,50 @@ export function buildQrCodeData(
 		return { data };
 	}
 
-	// Dynamic event and vcard codes open a landing page built in the dashboard.
-	const pageId = Number(param('pageId', 0));
-	if (!Number.isInteger(pageId) || pageId <= 0) {
-		throw new NodeOperationError(this.getNode(), `A landing page ID is needed${suffix(i)}`, {
-			itemIndex: i,
-			description:
-				'Dynamic Event and vCard codes open a landing page. Build it in the OpenQR.io dashboard and enter its ID, or pick a static type instead.',
-		});
+	// Dynamic event and vcard codes open a landing page instead: `data` stays empty.
+	return { data: {} };
+}
+
+/** Dynamic Event and vCard codes open a landing page built in the dashboard. */
+export function usesLandingPage(type: string): boolean {
+	return type === 'event' || type === 'vcard';
+}
+
+/** Reads a landing page ID. Returns undefined when it's not set and not required. */
+function pageIdFrom(
+	this: IExecuteFunctions,
+	raw: unknown,
+	i: number,
+	required: boolean,
+): number | undefined {
+	const pageId = Number(raw ?? 0);
+	if (Number.isInteger(pageId) && pageId > 0) return pageId;
+	if (!required && (raw === undefined || raw === null || raw === '' || pageId === 0)) {
+		return undefined;
 	}
-	return { data: {}, qrPageId: pageId };
+	throw new NodeOperationError(this.getNode(), `A landing page ID is needed${suffix(i)}`, {
+		itemIndex: i,
+		description:
+			'Dynamic Event and vCard codes open a landing page. Build it in the OpenQR.io dashboard and enter its ID, or pick a static type instead.',
+	});
+}
+
+function checkName(this: IExecuteFunctions, name: string, i: number): void {
+	if (name.length >= 5 && name.length <= 255) return;
+	throw new NodeOperationError(
+		this.getNode(),
+		`The name must be 5 to 255 characters long${suffix(i)}`,
+		{
+			itemIndex: i,
+			description: `"${name}" has ${name.length} characters. OpenQR.io needs 5 to 255.`,
+		},
+	);
 }
 
 /** Builds the body that Create, Preview and Save Preview send. */
 export function buildQrCodeBody(this: IExecuteFunctions, i: number): IDataObject {
 	const name = String(this.getNodeParameter('name', i, '') ?? '').trim();
-	if (name.length < 5 || name.length > 255) {
-		throw new NodeOperationError(
-			this.getNode(),
-			`The name must be 5 to 255 characters long${suffix(i)}`,
-			{
-				itemIndex: i,
-				description: `"${name}" has ${name.length} characters. OpenQR.io needs 5 to 255.`,
-			},
-		);
-	}
+	checkName.call(this, name, i);
 
 	const type = String(this.getNodeParameter('type', i));
 	if (!(QR_CODE_TYPES as readonly string[]).includes(type)) {
@@ -154,15 +173,82 @@ export function buildQrCodeBody(this: IExecuteFunctions, i: number): IDataObject
 		);
 	}
 
-	const { data, qrPageId } = buildQrCodeData.call(this, type, i);
+	const { data } = buildQrCodeData.call(this, type, i);
 	const body: IDataObject = { name, type, data };
-	if (qrPageId !== undefined) body.qr_page_id = qrPageId;
+	if (usesLandingPage(type)) {
+		body.qr_page_id = pageIdFrom.call(this, this.getNodeParameter('pageId', i, 0), i, true);
+	}
 
 	const options = this.getNodeParameter('options', i, {}) as IDataObject;
 	const folderId = folderIdFrom.call(this, options.folder, i);
 	if (folderId !== undefined) body.qr_code_folder_id = folderId;
 	const domainId = Number(options.domainId ?? 0);
 	if (Number.isInteger(domainId) && domainId > 0) body.domain_id = domainId;
+
+	const design = toApiDesign(this.getNodeParameter('design', i, {}) as IDataObject);
+	if (design) body.design = design;
+
+	return body;
+}
+
+/**
+ * Builds the Update body. The API replaces settings, so name, folder and domain are taken from
+ * the live code unless the user changes them. Content and design can't be read back (see BE-3).
+ */
+export function buildUpdateBody(
+	this: IExecuteFunctions,
+	current: IDataObject,
+	i: number,
+): IDataObject {
+	const liveType = String(current.type ?? '');
+	const type = String(this.getNodeParameter('type', i));
+	if (!(QR_CODE_TYPES as readonly string[]).includes(liveType)) {
+		throw new NodeOperationError(
+			this.getNode(),
+			`This ${liveType} code can only be edited in the OpenQR.io dashboard${suffix(i)}`,
+			{
+				itemIndex: i,
+				description: `The API can update these types: ${QR_CODE_TYPES.join(', ')}.`,
+			},
+		);
+	}
+	if (type !== liveType) {
+		throw new NodeOperationError(
+			this.getNode(),
+			`This QR code's type is ${liveType}, but Type is set to ${type}${suffix(i)}`,
+			{
+				itemIndex: i,
+				description: `A code's type can't be changed. Set Type to ${liveType} and fill in its content fields.`,
+			},
+		);
+	}
+
+	const fields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+
+	let name = String(current.name ?? '');
+	if (typeof fields.name === 'string' && fields.name.trim() !== '') {
+		name = fields.name.trim();
+		checkName.call(this, name, i);
+	}
+
+	const body: IDataObject = { name, data: buildQrCodeData.call(this, type, i).data };
+
+	let folderId = (current.qr_code_folder_id ?? null) as number | null;
+	if (fields.removeFromFolder === true) folderId = null;
+	else folderId = folderIdFrom.call(this, fields.folder, i) ?? folderId;
+	body.qr_code_folder_id = folderId;
+
+	let domainId = (current.domain_id ?? null) as number | null;
+	if (fields.domainId !== undefined) {
+		const value = Number(fields.domainId);
+		domainId = Number.isInteger(value) && value > 0 ? value : null;
+	}
+	body.domain_id = domainId;
+
+	if (usesLandingPage(type)) {
+		const pageId = pageIdFrom.call(this, fields.pageId, i, false);
+		if (pageId !== undefined) body.qr_page_id = pageId;
+	}
 
 	const design = toApiDesign(this.getNodeParameter('design', i, {}) as IDataObject);
 	if (design) body.design = design;
@@ -231,6 +317,28 @@ export async function executeQrCode(
 				'GET',
 				`/qr-codes/${id}`,
 				undefined,
+				undefined,
+				options,
+			);
+			return [{ json: (response.data ?? response) as IDataObject, pairedItem: item }];
+		}
+
+		case 'update': {
+			const id = qrCodeIdFrom.call(this, i);
+			const current = await openQrApiRequest.call(
+				this,
+				'GET',
+				`/qr-codes/${id}`,
+				undefined,
+				undefined,
+				options,
+			);
+			const body = buildUpdateBody.call(this, (current.data ?? {}) as IDataObject, i);
+			const response = await openQrApiRequest.call(
+				this,
+				'POST',
+				`/qr-codes/${id}`,
+				body,
 				undefined,
 				options,
 			);
