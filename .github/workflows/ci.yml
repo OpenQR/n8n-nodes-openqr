@@ -32,3 +32,6 @@ jobs:
 
       - name: Run build
         run: 'npm run build'
+
+      - name: Run unit tests
+        run: 'npm test'
