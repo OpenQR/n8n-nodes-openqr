@@ -1,0 +1,20 @@
+{
+	"node": "@openqr-io/n8n-nodes-openqr.openQrIo",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Marketing & Content"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://docs.openqr.io/#tag/Authentication"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/OpenQR/n8n-nodes-openqr#readme"
+			}
+		]
+	}
+}
