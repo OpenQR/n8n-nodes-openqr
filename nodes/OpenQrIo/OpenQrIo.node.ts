@@ -21,6 +21,12 @@ export class OpenQrIo implements INodeType {
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
 		usableAsTool: true,
+		credentials: [
+			{
+				name: 'openQrIoApi',
+				required: true,
+			},
+		],
 		properties: [],
 	};
 
