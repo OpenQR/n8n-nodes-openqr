@@ -95,7 +95,10 @@ test('retries 409 and then succeeds', async () => {
 
 test('gives up on 409 after the configured retries', async () => {
 	const ctx = makeContext([fail(409), fail(409), fail(409), fail(409)]);
-	await assert.rejects(openQrApiRequest.call(ctx, 'POST', '/qr-codes', { name: 'Hello' }), /still being created/);
+	await assert.rejects(
+		openQrApiRequest.call(ctx, 'POST', '/qr-codes', { name: 'Hello' }),
+		/still being created/,
+	);
 	assert.equal(ctx.calls.length, 4);
 });
 
@@ -118,12 +121,17 @@ test('uses Retry-After for 429, capped', () => {
 });
 
 test('reports a network failure with the base URL and a fix', async () => {
-	const ctx = makeContext([Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' })]);
+	const ctx = makeContext([
+		Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+	]);
 	await assert.rejects(
 		openQrApiRequest.call(ctx, 'GET', '/users', undefined, undefined, { itemIndex: 0 }),
 		(error) => {
 			assert.ok(error instanceof NodeApiError);
-			assert.match(error.message, /Could not reach OpenQR\.io at http:\/\/api\.test\/api\/v1 \[item 0\]/);
+			assert.match(
+				error.message,
+				/Could not reach OpenQR\.io at http:\/\/api\.test\/api\/v1 \[item 0\]/,
+			);
 			assert.match(error.description, /Base URL/);
 			return true;
 		},
@@ -138,12 +146,14 @@ test('cursor paging follows meta.next_cursor and stops at null', async () => {
 		ok({ data: [{ id: 4 }], meta: { next_cursor: null }, links: { next: null } }),
 	]);
 	const items = await openQrApiRequestAllItems.call(ctx, '/qr-codes', { status: 'public' });
-	assert.deepEqual(items.map((i) => i.id), [1, 2, 3, 4]);
-	assert.deepEqual(ctx.calls.map((c) => c.qs), [
-		{ status: 'public' },
-		{ status: 'public', cursor: 'c2' },
-		{ status: 'public', cursor: 'c3' },
-	]);
+	assert.deepEqual(
+		items.map((i) => i.id),
+		[1, 2, 3, 4],
+	);
+	assert.deepEqual(
+		ctx.calls.map((c) => c.qs),
+		[{ status: 'public' }, { status: 'public', cursor: 'c2' }, { status: 'public', cursor: 'c3' }],
+	);
 });
 
 test('cursor paging stops early when the limit is reached', async () => {
@@ -152,7 +162,10 @@ test('cursor paging stops early when the limit is reached', async () => {
 		ok({ data: [{ id: 3 }, { id: 4 }], meta: { next_cursor: 'c3' } }),
 	]);
 	const items = await openQrApiRequestAllItems.call(ctx, '/qr-codes', {}, 3);
-	assert.deepEqual(items.map((i) => i.id), [1, 2, 3]);
+	assert.deepEqual(
+		items.map((i) => i.id),
+		[1, 2, 3],
+	);
 	assert.equal(ctx.calls.length, 2);
 });
 
@@ -162,7 +175,10 @@ test('cursor paging stops if the API repeats a cursor', async () => {
 		ok({ data: [{ id: 2 }], meta: { next_cursor: 'same' } }),
 	]);
 	const items = await openQrApiRequestAllItems.call(ctx, '/folders');
-	assert.deepEqual(items.map((i) => i.id), [1, 2]);
+	assert.deepEqual(
+		items.map((i) => i.id),
+		[1, 2],
+	);
 	assert.equal(ctx.calls.length, 2);
 });
 
@@ -173,17 +189,29 @@ test('page paging (logos) follows links.next and stops when it is null', async (
 		ok({ data: [{ id: 'c' }], links: { next: null }, meta: { current_page: 3 } }),
 	]);
 	const items = await openQrApiRequestAllItems.call(ctx, '/files/qr-logos');
-	assert.deepEqual(items.map((i) => i.id), ['a', 'b', 'c']);
-	assert.deepEqual(ctx.calls.map((c) => c.qs), [undefined, { page: 2 }, { page: 3 }]);
+	assert.deepEqual(
+		items.map((i) => i.id),
+		['a', 'b', 'c'],
+	);
+	assert.deepEqual(
+		ctx.calls.map((c) => c.qs),
+		[undefined, { page: 2 }, { page: 3 }],
+	);
 });
 
 test('a single page without paging info returns its items', async () => {
 	const ctx = makeContext([ok({ data: [{ id: 1 }] })]);
 	const items = await openQrApiRequestAllItems.call(ctx, '/folders');
-	assert.deepEqual(items.map((i) => i.id), [1]);
+	assert.deepEqual(
+		items.map((i) => i.id),
+		[1],
+	);
 });
 
 test('an error on a later page is raised, not swallowed', async () => {
 	const ctx = makeContext([ok({ data: [{ id: 1 }], meta: { next_cursor: 'c2' } }), fail(401)]);
-	await assert.rejects(openQrApiRequestAllItems.call(ctx, '/qr-codes'), /did not accept the API key/);
+	await assert.rejects(
+		openQrApiRequestAllItems.call(ctx, '/qr-codes'),
+		/did not accept the API key/,
+	);
 });

@@ -2,9 +2,7 @@
 	"node": "@openqr-io/n8n-nodes-openqr.openQrIo",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": [
-		"Marketing & Content"
-	],
+	"categories": ["Marketing & Content"],
 	"resources": {
 		"credentialDocumentation": [
 			{

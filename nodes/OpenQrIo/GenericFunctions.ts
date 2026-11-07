@@ -35,6 +35,19 @@ export interface RequestOptions {
 	itemIndex?: number;
 }
 
+/** Error bodies come back as a Buffer when the response was requested as binary. */
+function parseErrorBody(body: unknown): ApiErrorBody {
+	if (Buffer.isBuffer(body)) {
+		try {
+			const parsed: unknown = JSON.parse(body.toString('utf8'));
+			return parsed && typeof parsed === 'object' ? (parsed as ApiErrorBody) : {};
+		} catch {
+			return {};
+		}
+	}
+	return body && typeof body === 'object' ? (body as ApiErrorBody) : {};
+}
+
 interface ApiErrorBody {
 	message?: string;
 }
@@ -77,9 +90,7 @@ export function buildApiError(
 	itemIndex?: number,
 ): NodeApiError {
 	const statusCode = response.statusCode;
-	const body = (
-		response.body && typeof response.body === 'object' ? response.body : {}
-	) as ApiErrorBody;
+	const body = parseErrorBody(response.body);
 	const apiMessage = typeof body.message === 'string' ? body.message : undefined;
 
 	let message: string;
@@ -132,15 +143,16 @@ export function buildApiError(
 	});
 }
 
-/** Sends one request to the OpenQR.io API, retrying 409 and 429 as the API docs ask. */
-export async function openQrApiRequest(
+/** Sends a request and returns the full 2xx response, retrying 409 and 429 as the API docs ask. */
+async function sendRequest(
 	this: OpenQrContext,
 	method: IHttpRequestMethods,
 	endpoint: string,
-	body?: IDataObject,
-	qs?: IDataObject,
-	options: RequestOptions = {},
-): Promise<IDataObject> {
+	body: IDataObject | undefined,
+	qs: IDataObject | undefined,
+	options: RequestOptions,
+	extra: Partial<IHttpRequestOptions> = {},
+): Promise<IN8nHttpFullResponse> {
 	const credentials = await this.getCredentials(CREDENTIAL_NAME);
 	const baseUrl = String(credentials.baseUrl ?? '').replace(/\/+$/, '');
 
@@ -150,9 +162,10 @@ export async function openQrApiRequest(
 		json: true,
 		returnFullResponse: true,
 		ignoreHttpStatusErrors: true,
+		...extra,
 	};
 	if (body !== undefined && Object.keys(body).length > 0) requestOptions.body = body;
-	if (qs !== undefined && Object.keys(qs).length > 0) requestOptions.qs = qs;
+	if (qs !== undefined && Object.keys(qs).length > 0) requestOptions.qs = { ...qs };
 
 	for (let attempt = 0; ; attempt++) {
 		let response: IN8nHttpFullResponse;
@@ -174,9 +187,7 @@ export async function openQrApiRequest(
 			});
 		}
 
-		if (response.statusCode >= 200 && response.statusCode < 300) {
-			return (response.body ?? {}) as IDataObject;
-		}
+		if (response.statusCode >= 200 && response.statusCode < 300) return response;
 
 		const delay = getRetryDelayMs(response.statusCode, attempt, response.headers);
 		if (delay === undefined) {
@@ -184,6 +195,41 @@ export async function openQrApiRequest(
 		}
 		await sleep(delay);
 	}
+}
+
+/** Sends one JSON request to the OpenQR.io API and returns the parsed body. */
+export async function openQrApiRequest(
+	this: OpenQrContext,
+	method: IHttpRequestMethods,
+	endpoint: string,
+	body?: IDataObject,
+	qs?: IDataObject,
+	options: RequestOptions = {},
+): Promise<IDataObject> {
+	const response = await sendRequest.call(this, method, endpoint, body, qs, options);
+	return (response.body ?? {}) as IDataObject;
+}
+
+/** Sends one request whose success response is a file, such as the SVG from Preview. */
+export async function openQrApiRequestBinary(
+	this: OpenQrContext,
+	method: IHttpRequestMethods,
+	endpoint: string,
+	body?: IDataObject,
+	qs?: IDataObject,
+	options: RequestOptions = {},
+): Promise<{ data: Buffer; contentType?: string }> {
+	const response = await sendRequest.call(this, method, endpoint, body, qs, options, {
+		encoding: 'arraybuffer',
+	});
+	const raw: unknown = response.body;
+	const data = Buffer.isBuffer(raw)
+		? raw
+		: raw instanceof ArrayBuffer
+			? Buffer.from(raw)
+			: Buffer.from(typeof raw === 'string' ? raw : JSON.stringify(raw ?? ''), 'utf8');
+	const contentType = response.headers?.['content-type'];
+	return { data, contentType: typeof contentType === 'string' ? contentType : undefined };
 }
 
 /**
