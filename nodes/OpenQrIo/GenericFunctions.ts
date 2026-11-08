@@ -345,3 +345,47 @@ export async function downloadQrImage(
 		});
 	}
 }
+
+export interface UploadFile {
+	data: Buffer;
+	fileName: string;
+	mimeType: string;
+}
+
+/**
+ * Builds a multipart/form-data body with one file field. Done by hand because verified
+ * community nodes can't depend on the form-data package.
+ */
+export function buildMultipartBody(
+	field: string,
+	file: UploadFile,
+	boundary = `----OpenQrIoN8n${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`,
+): { body: Buffer; contentType: string } {
+	const safe = (value: string) => value.replace(/["\r\n\\]/g, '_');
+	const head =
+		`--${boundary}\r\n` +
+		`Content-Disposition: form-data; name="${safe(field)}"; filename="${safe(file.fileName)}"\r\n` +
+		`Content-Type: ${safe(file.mimeType)}\r\n\r\n`;
+	const body = Buffer.concat([
+		Buffer.from(head, 'utf8'),
+		file.data,
+		Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8'),
+	]);
+	return { body, contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+/** Uploads one file as multipart/form-data, with the same retries and errors as other requests. */
+export async function openQrApiUpload(
+	this: OpenQrContext,
+	endpoint: string,
+	field: string,
+	file: UploadFile,
+	options: RequestOptions = {},
+): Promise<IDataObject> {
+	const { body, contentType } = buildMultipartBody(field, file);
+	const response = await sendRequest.call(this, 'POST', endpoint, undefined, undefined, options, {
+		body,
+		headers: { 'Content-Type': contentType },
+	});
+	return (response.body ?? {}) as IDataObject;
+}

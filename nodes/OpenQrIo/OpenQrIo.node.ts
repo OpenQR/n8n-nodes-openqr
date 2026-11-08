@@ -6,7 +6,15 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { executeAccount, executeFolder, executeLogo } from './actions/other';
 import { executeQrCode } from './actions/qrCode';
+import {
+	accountFields,
+	accountOperations,
+	logoFields,
+	logoOperations,
+} from './descriptions/AccountLogoDescription';
+import { folderFields, folderOperations } from './descriptions/FolderDescription';
 import { qrCodeFields, qrCodeOperations } from './descriptions/QrCodeDescription';
 import { listSearch, loadOptions } from './methods';
 
@@ -37,11 +45,22 @@ export class OpenQrIo implements INodeType {
 				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
-				options: [{ name: 'QR Code', value: 'qrCode' }],
+				options: [
+					{ name: 'Account', value: 'account' },
+					{ name: 'Folder', value: 'folder' },
+					{ name: 'Logo', value: 'logo' },
+					{ name: 'QR Code', value: 'qrCode' },
+				],
 				default: 'qrCode',
 			},
 			...qrCodeOperations,
 			...qrCodeFields,
+			...folderOperations,
+			...folderFields,
+			...accountOperations,
+			...accountFields,
+			...logoOperations,
+			...logoFields,
 		],
 	};
 
@@ -56,14 +75,21 @@ export class OpenQrIo implements INodeType {
 				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
 
-				if (resource !== 'qrCode') {
+				const handlers = {
+					account: executeAccount,
+					folder: executeFolder,
+					logo: executeLogo,
+					qrCode: executeQrCode,
+				};
+				const handler = handlers[resource as keyof typeof handlers];
+				if (handler === undefined) {
 					throw new NodeOperationError(
 						this.getNode(),
 						`The resource "${resource}" isn't supported [item ${i}]`,
 						{ itemIndex: i },
 					);
 				}
-				returnData.push(...(await executeQrCode.call(this, operation, i)));
+				returnData.push(...(await handler.call(this, operation, i)));
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({

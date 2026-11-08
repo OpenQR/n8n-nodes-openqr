@@ -8,16 +8,7 @@ import {
 	openQrApiRequestAllItems,
 	openQrApiRequestBinary,
 } from '../GenericFunctions';
-
-const suffix = (i: number) => ` [item ${i}]`;
-
-/** Reads a resource locator value, whether it arrives as `{ mode, value }` or a plain value. */
-export function locatorValue(raw: unknown): string {
-	if (raw && typeof raw === 'object' && 'value' in raw) {
-		return String((raw as { value: unknown }).value ?? '').trim();
-	}
-	return raw === undefined || raw === null ? '' : String(raw).trim();
-}
+import { checkName, folderIdFrom, locatorValue, suffix } from './common';
 
 function toDateString(value: unknown): string | undefined {
 	if (value === undefined || value === null || value === '') return undefined;
@@ -26,23 +17,6 @@ function toDateString(value: unknown): string | undefined {
 		return String((value as { toISO: () => string }).toISO());
 	}
 	return String(value);
-}
-
-function folderIdFrom(this: IExecuteFunctions, raw: unknown, i: number): number | undefined {
-	const value = locatorValue(raw);
-	if (value === '') return undefined;
-	const id = Number(value);
-	if (!Number.isInteger(id) || id <= 0) {
-		throw new NodeOperationError(
-			this.getNode(),
-			`The folder ID "${value}" isn't valid${suffix(i)}`,
-			{
-				itemIndex: i,
-				description: 'A folder ID is a whole number, such as 6. Pick the folder from the list.',
-			},
-		);
-	}
-	return id;
 }
 
 export function qrCodeIdFrom(this: IExecuteFunctions, i: number): string {
@@ -143,18 +117,6 @@ function pageIdFrom(
 		description:
 			'Dynamic Event and vCard codes open a landing page. Build it in the OpenQR.io dashboard and enter its ID, or pick a static type instead.',
 	});
-}
-
-function checkName(this: IExecuteFunctions, name: string, i: number): void {
-	if (name.length >= 5 && name.length <= 255) return;
-	throw new NodeOperationError(
-		this.getNode(),
-		`The name must be 5 to 255 characters long${suffix(i)}`,
-		{
-			itemIndex: i,
-			description: `"${name}" has ${name.length} characters. OpenQR.io needs 5 to 255.`,
-		},
-	);
 }
 
 /** Builds the body that Create, Preview and Save Preview send. */
