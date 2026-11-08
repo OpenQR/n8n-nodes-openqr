@@ -3,6 +3,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import { toApiDesign } from '../descriptions/DesignDescription';
 import { baseType, QR_CODE_TYPES } from '../descriptions/QrCodeTypes';
 import {
+	downloadQrImage,
 	openQrApiRequest,
 	openQrApiRequestAllItems,
 	openQrApiRequestBinary,
@@ -256,12 +257,43 @@ export function buildUpdateBody(
 	return body;
 }
 
-function fileNameFor(name: string): string {
+function fileNameFor(name: string, extension = 'svg'): string {
 	const base = name
 		.replace(/[^\p{L}\p{N}._ -]+/gu, '')
 		.trim()
 		.replace(/\s+/g, '-');
-	return `${base || 'qr-code'}.svg`;
+	return `${base || 'qr-code'}.${extension}`;
+}
+
+const IMAGE_TYPES: Record<string, string> = {
+	svg: 'image/svg+xml',
+	png: 'image/png',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	webp: 'image/webp',
+	pdf: 'application/pdf',
+};
+
+/** Downloads a code's image and puts it on the item, next to the code's JSON. */
+async function withImage(
+	this: IExecuteFunctions,
+	code: IDataObject,
+	i: number,
+): Promise<INodeExecutionData> {
+	const binaryPropertyName = String(this.getNodeParameter('binaryPropertyName', i, 'data'));
+	const url = typeof code.image === 'string' ? code.image : '';
+	const { data, contentType } = await downloadQrImage.call(this, url, { itemIndex: i });
+
+	// The CDN only serves SVG today. Take the type from the URL so PNG works once BE-2 lands.
+	const urlExtension = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(url)?.[1]?.toLowerCase();
+	const extension = urlExtension && IMAGE_TYPES[urlExtension] ? urlExtension : 'svg';
+	const headerType = contentType?.split(';')[0].trim();
+	const mimeType =
+		headerType && headerType.startsWith('image/') ? headerType : IMAGE_TYPES[extension];
+
+	const fileName = fileNameFor(String(code.name ?? code.id ?? ''), extension);
+	const binary = await this.helpers.prepareBinaryData(data, fileName, mimeType);
+	return { json: code, binary: { [binaryPropertyName]: binary }, pairedItem: { item: i } };
 }
 
 export async function executeQrCode(
@@ -285,7 +317,11 @@ export async function executeQrCode(
 				undefined,
 				options,
 			);
-			return [{ json: (response.data ?? response) as IDataObject, pairedItem: item }];
+			const code = (response.data ?? response) as IDataObject;
+			if (this.getNodeParameter('downloadImage', i, false) === true) {
+				return [await withImage.call(this, code, i)];
+			}
+			return [{ json: code, pairedItem: item }];
 		}
 
 		case 'preview': {
@@ -343,6 +379,19 @@ export async function executeQrCode(
 				options,
 			);
 			return [{ json: (response.data ?? response) as IDataObject, pairedItem: item }];
+		}
+
+		case 'getImage': {
+			const id = qrCodeIdFrom.call(this, i);
+			const response = await openQrApiRequest.call(
+				this,
+				'GET',
+				`/qr-codes/${id}`,
+				undefined,
+				undefined,
+				options,
+			);
+			return [await withImage.call(this, (response.data ?? {}) as IDataObject, i)];
 		}
 
 		case 'archive': {

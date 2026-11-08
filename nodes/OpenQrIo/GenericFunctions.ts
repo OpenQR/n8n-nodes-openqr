@@ -8,7 +8,7 @@ import type {
 	INode,
 	JsonObject,
 } from 'n8n-workflow';
-import { NodeApiError, sleep } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError, sleep } from 'n8n-workflow';
 
 export type OpenQrContext = IExecuteFunctions | ILoadOptionsFunctions;
 
@@ -26,6 +26,8 @@ export const retryPolicy = {
 	rateLimitDelaysMs: [15000, 30000],
 	/** Upper bound for a Retry-After header, so one item can't stall the workflow for long. */
 	maxRetryAfterMs: 60000,
+	/** Image download: the file may not be on the CDN yet right after Create. */
+	imageDelaysMs: [1000, 2000, 4000],
 };
 
 /** Hard stop for pagination, in case the API keeps returning a next page. */
@@ -269,4 +271,77 @@ export async function openQrApiRequestAllItems(
 	}
 
 	return results;
+}
+
+/**
+ * Downloads a QR code image from the URL in the code's `image` field.
+ * Sent without the credential: the file is public and on another host, so the API key stays off it.
+ */
+export async function downloadQrImage(
+	this: IExecuteFunctions,
+	url: string,
+	options: RequestOptions = {},
+): Promise<{ data: Buffer; contentType?: string }> {
+	const where = itemSuffix(options.itemIndex);
+	if (!/^https?:\/\//i.test(url)) {
+		throw new NodeOperationError(this.getNode(), `This QR code has no image URL${where}`, {
+			itemIndex: options.itemIndex,
+			description: 'OpenQR.io returned the code without an image. Try again in a moment.',
+		});
+	}
+
+	for (let attempt = 0; ; attempt++) {
+		let response: IN8nHttpFullResponse;
+		try {
+			response = (await this.helpers.httpRequest({
+				method: 'GET',
+				url,
+				encoding: 'arraybuffer',
+				returnFullResponse: true,
+				ignoreHttpStatusErrors: true,
+			})) as IN8nHttpFullResponse;
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : String(error);
+			throw new NodeApiError(this.getNode(), { message: reason } as JsonObject, {
+				message: `Could not download the QR code image${where}`,
+				description: `${reason}. The image is at ${url}.`,
+				itemIndex: options.itemIndex,
+			});
+		}
+
+		if (response.statusCode >= 200 && response.statusCode < 300) {
+			const raw: unknown = response.body;
+			const data = Buffer.isBuffer(raw)
+				? raw
+				: Buffer.from(typeof raw === 'string' ? raw : JSON.stringify(raw ?? ''), 'utf8');
+			const contentType = response.headers?.['content-type'];
+			return { data, contentType: typeof contentType === 'string' ? contentType : undefined };
+		}
+
+		// The CDN answers 404 until the image has been rendered. A 403 is a refusal, not a delay:
+		// the CDN blocks some clients by user agent, so retrying wouldn't help.
+		const notReady = response.statusCode === 404;
+		if (notReady && attempt < retryPolicy.imageDelaysMs.length) {
+			await sleep(retryPolicy.imageDelaysMs[attempt]);
+			continue;
+		}
+
+		const waitedSeconds = Math.round(retryPolicy.imageDelaysMs.reduce((a, b) => a + b, 0) / 1000);
+		let message = `Could not download the QR code image${where}`;
+		let description = `The image server returned status ${response.statusCode}. The image is at ${url}.`;
+		if (notReady) {
+			message = `The QR code image isn't available yet${where}`;
+			description = `The node waited about ${waitedSeconds} seconds. Run Get Image again shortly. The image is at ${url}.`;
+		} else if (response.statusCode === 403) {
+			message = `The image server refused the download${where}`;
+			description = `It may block requests from this n8n instance's network or proxy. Check that ${url} opens from the same network, or contact OpenQR support.`;
+		}
+
+		throw new NodeApiError(this.getNode(), {} as JsonObject, {
+			message,
+			description,
+			httpCode: String(response.statusCode),
+			itemIndex: options.itemIndex,
+		});
+	}
 }

@@ -2,15 +2,21 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { OpenQrIo } = require('../dist/nodes/OpenQrIo/OpenQrIo.node.js');
+const { retryPolicy } = require('../dist/nodes/OpenQrIo/GenericFunctions.js');
+
+retryPolicy.imageDelaysMs = [0, 0, 0];
 
 const node = new OpenQrIo();
 
 /** A fake n8n execute context. `items` holds the parameters of each input item. */
-function makeContext(items, responses, { continueOnFail = false } = {}) {
+function makeContext(items, responses, { continueOnFail = false, downloads = [] } = {}) {
 	const calls = [];
+	const downloadCalls = [];
 	const queue = [...responses];
+	const downloadQueue = [...downloads];
 	return {
 		calls,
+		downloadCalls,
 		getInputData: () => items.map(() => ({ json: {} })),
 		getNodeParameter: (name, i, fallback) => {
 			const value = items[i][name];
@@ -24,6 +30,14 @@ function makeContext(items, responses, { continueOnFail = false } = {}) {
 				calls.push(options);
 				const next = queue.shift();
 				if (next === undefined) throw new Error('test: no more responses queued');
+				return next;
+			},
+			// Unauthenticated requests: only the image download uses these.
+			httpRequest: async (options) => {
+				downloadCalls.push(options);
+				const next = downloadQueue.shift();
+				if (next === undefined) throw new Error('test: no more downloads queued');
+				if (next instanceof Error) throw next;
 				return next;
 			},
 			prepareBinaryData: async (data, fileName, mimeType) => ({
@@ -263,14 +277,14 @@ test('Get and Archive use the QR code ID from the locator', async () => {
 	const { ctx, output } = await run(
 		[
 			{ resource: 'qrCode', operation: 'get', qrCodeId: { mode: 'list', value: 'km0yYX0' } },
-			{ resource: 'qrCode', operation: 'archive', qrCodeId: { mode: 'id', value: ' CNrqFwwf ' } },
+			{ resource: 'qrCode', operation: 'archive', qrCodeId: { mode: 'id', value: ' _4EeX8iV ' } },
 		],
 		[created(), created({ status: 'archived' })],
 	);
 	assert.equal(ctx.calls[0].method, 'GET');
 	assert.equal(ctx.calls[0].url, 'http://api.test/api/v1/qr-codes/km0yYX0');
 	assert.equal(ctx.calls[1].method, 'POST');
-	assert.equal(ctx.calls[1].url, 'http://api.test/api/v1/qr-codes/CNrqFwwf/archive');
+	assert.equal(ctx.calls[1].url, 'http://api.test/api/v1/qr-codes/_4EeX8iV/archive');
 	assert.equal(output[1].json.status, 'archived');
 	assert.deepEqual(output[1].pairedItem, { item: 1 });
 });
@@ -436,4 +450,100 @@ test('Update checks a new name before sending', async () => {
 		run(update({ url: 'https://openqr.io', updateFields: { name: 'Hi' } }), [live()]),
 		/5 to 255 characters long/,
 	);
+});
+
+// Get Image and Download Image: the image comes from the CDN URL in the code's `image` field.
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+const IMAGE_URL = 'https://cdn.openqr.io/qrcode_files/km/0y/km0yYX0.svg';
+const withImageUrl = (extra = {}) => created({ image: IMAGE_URL, ...extra });
+const svgFile = (contentType = 'image/svg+xml') => ({
+	statusCode: 200,
+	headers: { 'content-type': contentType },
+	body: Buffer.from(SVG),
+});
+const getImage = (extra) => ({
+	resource: 'qrCode',
+	operation: 'getImage',
+	qrCodeId: { mode: 'list', value: 'km0yYX0' },
+	...extra,
+});
+
+test('Get Image downloads the image URL without the credential and keeps the JSON', async () => {
+	const { ctx, output } = await run(getImage(), [withImageUrl()], { downloads: [svgFile()] });
+	assert.equal(ctx.calls[0].url, 'http://api.test/api/v1/qr-codes/km0yYX0');
+	assert.equal(ctx.downloadCalls.length, 1);
+	assert.equal(ctx.downloadCalls[0].url, IMAGE_URL);
+	assert.equal(ctx.downloadCalls[0].encoding, 'arraybuffer');
+	assert.equal(ctx.downloadCalls[0].headers, undefined);
+	assert.equal(output[0].json.image, IMAGE_URL);
+	assert.deepEqual(output[0].binary.data, {
+		data: Buffer.from(SVG).toString('base64'),
+		fileName: 'Spring-menu.svg',
+		mimeType: 'image/svg+xml',
+	});
+	assert.deepEqual(output[0].pairedItem, { item: 0 });
+});
+
+test('Get Image falls back to the SVG type when the CDN sends a generic one', async () => {
+	const { output } = await run(getImage({ binaryPropertyName: 'qr' }), [withImageUrl()], {
+		downloads: [svgFile('application/octet-stream')],
+	});
+	assert.equal(output[0].binary.qr.mimeType, 'image/svg+xml');
+});
+
+test('Get Image retries while the image is not on the CDN yet', async () => {
+	const { ctx, output } = await run(getImage(), [withImageUrl()], {
+		downloads: [{ statusCode: 404, headers: {}, body: Buffer.from('') }, svgFile()],
+	});
+	assert.equal(ctx.downloadCalls.length, 2);
+	assert.equal(output[0].binary.data.fileName, 'Spring-menu.svg');
+});
+
+test('Get Image gives up with a clear message when the image never appears', async () => {
+	const missing = { statusCode: 404, headers: {}, body: Buffer.from('') };
+	await assert.rejects(
+		run(getImage(), [withImageUrl()], { downloads: [missing, missing, missing, missing] }),
+		/image isn't available yet \[item 0\]/,
+	);
+});
+
+test('Get Image does not retry other image server statuses', async () => {
+	const ctx = { downloads: [{ statusCode: 500, headers: {}, body: Buffer.from('') }] };
+	await assert.rejects(
+		run(getImage(), [withImageUrl()], ctx),
+		/Could not download the QR code image/,
+	);
+});
+
+test('Get Image reports a code without an image URL', async () => {
+	await assert.rejects(run(getImage(), [created()]), /has no image URL \[item 0\]/);
+});
+
+test('Create with Download Image returns the saved code with its SVG', async () => {
+	const { ctx, output } = await run(
+		create({ type: 'url', url: 'https://openqr.io', downloadImage: true }),
+		[withImageUrl()],
+		{ downloads: [svgFile()] },
+	);
+	assert.equal(ctx.calls.length, 1);
+	assert.equal(ctx.downloadCalls.length, 1);
+	assert.equal(output[0].json.id, 'km0yYX0');
+	assert.equal(output[0].binary.data.mimeType, 'image/svg+xml');
+});
+
+test('Create without Download Image makes no download', async () => {
+	const { ctx, output } = await run(create({ type: 'url', url: 'https://openqr.io' }), [
+		withImageUrl(),
+	]);
+	assert.equal(ctx.downloadCalls.length, 0);
+	assert.equal(output[0].binary, undefined);
+});
+
+test('Get Image does not retry a 403 from the image server', async () => {
+	const ctx = { downloads: [{ statusCode: 403, headers: {}, body: Buffer.from('') }] };
+	await assert.rejects(
+		run(getImage(), [withImageUrl()], ctx),
+		/image server refused the download \[item 0\]/,
+	);
+	// Only one download is queued: a retry would fail with a different message.
 });

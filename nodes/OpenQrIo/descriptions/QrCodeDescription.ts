@@ -52,6 +52,13 @@ export const qrCodeOperations: INodeProperties[] = [
 				action: 'Get a QR code',
 			},
 			{
+				name: 'Get Image',
+				value: 'getImage',
+				description:
+					'Download the image of a QR code as an SVG file, ready to attach to an email or upload',
+				action: 'Get the image of a QR code',
+			},
+			{
 				name: 'Get Many',
 				value: 'getAll',
 				description: 'List QR codes, newest first',
@@ -108,8 +115,8 @@ export function qrCodeLocator(operations: string[]): INodeProperties {
 					{
 						type: 'regex',
 						properties: {
-							regex: '^[A-Za-z0-9]+$',
-							errorMessage: 'A QR code ID has only letters and numbers, such as km0yYX0',
+							regex: '^[A-Za-z0-9_-]+$',
+							errorMessage: 'A QR code ID has only letters, numbers, _ and -, such as km0yYX0',
 						},
 					},
 				],
@@ -450,15 +457,29 @@ const bodyFields: INodeProperties[] = [
 	},
 	designCollection(forContent().show),
 	{
+		displayName: 'Download Image',
+		name: 'downloadImage',
+		type: 'boolean',
+		default: false,
+		description:
+			'Whether to also download the saved code’s SVG image, so the next node gets a file. Uses one more request, to the image server.',
+		displayOptions: { show: { resource: ['qrCode'], operation: ['create', 'savePreview'] } },
+	},
+	outputFileField({ operation: ['preview', 'getImage'] }),
+	outputFileField({ operation: ['create', 'savePreview'], downloadImage: [true] }),
+];
+
+function outputFileField(show: Record<string, Array<string | boolean>>): INodeProperties {
+	return {
 		displayName: 'Put Output File in Field',
 		name: 'binaryPropertyName',
 		type: 'string',
 		required: true,
 		default: 'data',
 		hint: 'The name of the output binary field to put the SVG in',
-		displayOptions: { show: { resource: ['qrCode'], operation: ['preview'] } },
-	},
-];
+		displayOptions: { show: { resource: ['qrCode'], ...show } },
+	};
+}
 
 const archiveFields: INodeProperties[] = [
 	{
@@ -580,7 +601,7 @@ const updateFields: INodeProperties[] = [
 ];
 
 export const qrCodeFields: INodeProperties[] = [
-	qrCodeLocator(['get', 'archive', 'update']),
+	qrCodeLocator(['get', 'getImage', 'archive', 'update']),
 	...updateFields,
 	...archiveFields,
 	...bodyFields,
