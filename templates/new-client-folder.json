@@ -1,0 +1,72 @@
+{
+	"name": "Create an OpenQR.io folder for each new client",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## New client folder\n\nFor agencies: when a new client is added, this creates a folder for them in [OpenQR.io](https://openqr.io), so their QR codes stay together from day one.\n\n### Setup\n1. Add your OpenQR.io API key: dashboard.openqr.io, user menu, API Keys.\n2. Open the form from **New Client Form** and submit a client name.\n\nThe folder is named \"Client <name>\", because folder names need at least 5 characters. To start from your CRM instead, replace the form with its trigger, such as HubSpot or Pipedrive, and map the company name.",
+				"height": 400,
+				"width": 420
+			},
+			"id": "fa97bde1-2763-4b0a-af18-86284db14fb6",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-460, -240]
+		},
+		{
+			"parameters": {
+				"formTitle": "New client",
+				"formDescription": "Creates a folder for the client's QR codes in OpenQR.io.",
+				"formFields": {
+					"values": [
+						{
+							"fieldLabel": "Client name",
+							"placeholder": "e.g. Acme Bakery",
+							"requiredField": true
+						}
+					]
+				},
+				"options": {}
+			},
+			"id": "9a00e70d-b657-4b14-b95a-a9039063445d",
+			"name": "New Client Form",
+			"type": "n8n-nodes-base.formTrigger",
+			"typeVersion": 2.6,
+			"position": [0, 0],
+			"webhookId": "ca06a1b5-bfdd-402d-b432-5418779afcb5"
+		},
+		{
+			"parameters": {
+				"resource": "folder",
+				"operation": "create",
+				"name": "={{ 'Client ' + $json['Client name'].trim() }}"
+			},
+			"id": "da5feef8-1b32-4df8-8b78-ce44af995528",
+			"name": "Create Client Folder",
+			"type": "@openqr-io/n8n-nodes-openqr.openQrIo",
+			"typeVersion": 1,
+			"position": [240, 0]
+		}
+	],
+	"connections": {
+		"New Client Form": {
+			"main": [
+				[
+					{
+						"node": "Create Client Folder",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"meta": {
+		"templateCredsSetupCompleted": false
+	},
+	"tags": []
+}

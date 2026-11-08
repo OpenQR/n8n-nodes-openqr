@@ -1,0 +1,76 @@
+{
+	"name": "Switch a QR code between lunch and dinner menus on a schedule",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Scheduled destination change\n\nA dynamic QR code holds a short link, so you can change where it points without reprinting it. At 11:00 this workflow points the code at the lunch menu, and at 17:00 at the dinner menu.\n\n### Setup\n1. Create a **dynamic URL** code (type URL (Dynamic)) and pick it in **Point Code at Menu**.\n2. Replace the two menu links in the URL field.\n3. Check the workflow's timezone in its settings.\n4. Add your OpenQR.io API key: dashboard.openqr.io, user menu, API Keys.\n\n### Keep the look\nEvery update resets the code's design to plain black and white. If the printed code has colours, a frame or a logo, fill in **Design** with the same settings, so the dashboard image matches what's printed. Name and folder are kept automatically.",
+				"height": 520,
+				"width": 420,
+				"color": 5
+			},
+			"id": "b11355a5-12be-4de7-bd82-ad32b6324f75",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-460, -260]
+		},
+		{
+			"parameters": {
+				"rule": {
+					"interval": [
+						{
+							"field": "cronExpression",
+							"expression": "0 11,17 * * *"
+						}
+					]
+				}
+			},
+			"id": "552c2f00-3f8d-407e-aef8-77c42bc3f359",
+			"name": "At 11:00 and 17:00",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.4,
+			"position": [0, 0]
+		},
+		{
+			"parameters": {
+				"resource": "qrCode",
+				"operation": "update",
+				"qrCodeId": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"type": "url",
+				"url": "={{ $now.hour < 17 ? 'https://example.com/lunch-menu' : 'https://example.com/dinner-menu' }}",
+				"updateFields": {},
+				"design": {}
+			},
+			"id": "f7906440-afdb-4a6c-a0b3-ed21b1098e20",
+			"name": "Point Code at Menu",
+			"type": "@openqr-io/n8n-nodes-openqr.openQrIo",
+			"typeVersion": 1,
+			"position": [240, 0]
+		}
+	],
+	"connections": {
+		"At 11:00 and 17:00": {
+			"main": [
+				[
+					{
+						"node": "Point Code at Menu",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"meta": {
+		"templateCredsSetupCompleted": false
+	},
+	"tags": []
+}

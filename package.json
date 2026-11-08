@@ -1,51 +1,57 @@
 {
-  "name": "@openqr-io/n8n-nodes-openqr",
-  "version": "0.1.0",
-  "description": "Official n8n node for OpenQR.io: create and update QR codes, and pull scan stats, inside your workflows.",
-  "license": "MIT",
-  "homepage": "https://openqr.io",
-  "keywords": [
-    "n8n-community-node-package"
-  ],
-  "author": {
-    "name": "openqr.io",
-    "email": "info@openqr.io"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/OpenQR/n8n-nodes-openqr.git"
-  },
-  "scripts": {
-    "build": "n8n-node build",
-    "build:watch": "tsc --watch",
-    "dev": "n8n-node dev",
-    "lint": "n8n-node lint",
-    "lint:fix": "n8n-node lint --fix",
-    "release": "n8n-node release",
-    "prepublishOnly": "n8n-node prerelease",
-    "test": "n8n-node build && node --test \"test/**/*.test.js\""
-  },
-  "files": [
-    "dist"
-  ],
-  "n8n": {
-    "n8nNodesApiVersion": 1,
-    "strict": true,
-    "credentials": [
-      "dist/credentials/OpenQrIoApi.credentials.js"
-    ],
-    "nodes": [
-      "dist/nodes/OpenQrIo/OpenQrIo.node.js"
-    ]
-  },
-  "devDependencies": {
-    "@n8n/node-cli": "^0.55.5",
-    "eslint": "9.32.0",
-    "prettier": "3.6.2",
-    "release-it": "^21.1.0",
-    "typescript": "5.9.2"
-  },
-  "peerDependencies": {
-    "n8n-workflow": "*"
-  }
+	"name": "@openqr-io/n8n-nodes-openqr",
+	"version": "0.1.0",
+	"description": "Official n8n node for OpenQR.io: create, update and download dynamic and static QR codes, and manage folders and logos, inside your workflows.",
+	"license": "MIT",
+	"homepage": "https://openqr.io",
+	"keywords": [
+		"n8n-community-node-package",
+		"n8n",
+		"openqr",
+		"openqr.io",
+		"qr-code",
+		"qr-code-generator",
+		"dynamic-qr-code"
+	],
+	"author": {
+		"name": "openqr.io",
+		"email": "info@openqr.io"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/OpenQR/n8n-nodes-openqr.git"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease",
+		"test": "n8n-node build && node --test \"test/**/*.test.js\""
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/OpenQrIoApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/OpenQrIo/OpenQrIo.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "^0.55.5",
+		"eslint": "9.32.0",
+		"prettier": "3.6.2",
+		"release-it": "^21.1.0",
+		"typescript": "5.9.2"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
 }

@@ -1,0 +1,151 @@
+{
+	"name": "Email an alert when the OpenQR.io plan is nearly full",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Plan limit alert\n\nEvery morning this checks your [OpenQR.io](https://openqr.io) plan. When 10% or fewer of its QR codes are left, it sends an email, so a bulk workflow doesn't stop halfway.\n\n### Setup\n1. Add your OpenQR.io API key: dashboard.openqr.io, user menu, API Keys.\n2. Connect Gmail and change the address in **Send Alert**, or swap it for Slack.\n\nArchived codes don't count towards the limit, so archiving unused codes frees up space.",
+				"height": 420,
+				"width": 420
+			},
+			"id": "3a105de6-c291-4795-b4ef-7909fe92ae0f",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-460, -260]
+		},
+		{
+			"parameters": {
+				"rule": {
+					"interval": [
+						{
+							"field": "days",
+							"triggerAtHour": 9
+						}
+					]
+				}
+			},
+			"id": "5e82ce55-7f8e-4df0-bfcc-d6c7bc3a5b97",
+			"name": "Every Morning",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.4,
+			"position": [0, 0]
+		},
+		{
+			"parameters": {
+				"resource": "account",
+				"operation": "getUsage",
+				"simplify": true
+			},
+			"id": "b06e7eab-4e24-40bf-a11f-a7dde64746a0",
+			"name": "Get Plan Usage",
+			"type": "@openqr-io/n8n-nodes-openqr.openQrIo",
+			"typeVersion": 1,
+			"position": [220, 0]
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "strict",
+						"version": 4
+					},
+					"conditions": [
+						{
+							"id": "86cc424a-b63b-4b16-8eff-02adc14763d5",
+							"leftValue": "={{ $json.qr_codes_remaining }}",
+							"rightValue": "={{ Math.ceil($json.qr_codes_limit * 0.1) }}",
+							"operator": {
+								"type": "number",
+								"operation": "lte"
+							}
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			},
+			"id": "5a300c61-415d-4c1d-a411-1f46015c4156",
+			"name": "10% or Less Left?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2.4,
+			"position": [440, 0]
+		},
+		{
+			"parameters": {
+				"resource": "message",
+				"operation": "send",
+				"sendTo": "you@example.com",
+				"subject": "={{ 'OpenQR.io: ' + $json.qr_codes_remaining + ' QR codes left on the ' + $json.plan + ' plan' }}",
+				"emailType": "text",
+				"message": "={{ 'You have used ' + $json.created_qr_codes_count + ' of ' + $json.qr_codes_limit + ' QR codes. Archive unused codes or upgrade at https://dashboard.openqr.io.' }}",
+				"options": {}
+			},
+			"id": "49816c05-a23d-4ff8-98a7-4639289165d1",
+			"name": "Send Alert",
+			"type": "n8n-nodes-base.gmail",
+			"typeVersion": 2.2,
+			"position": [680, -80],
+			"webhookId": "3b6b05d0-6503-4d41-babd-45bf7cdeddc9"
+		},
+		{
+			"parameters": {},
+			"id": "2af36235-f4cd-49bc-84c5-b7785d65882e",
+			"name": "Enough Left",
+			"type": "n8n-nodes-base.noOp",
+			"typeVersion": 1,
+			"position": [680, 100]
+		}
+	],
+	"connections": {
+		"Every Morning": {
+			"main": [
+				[
+					{
+						"node": "Get Plan Usage",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Get Plan Usage": {
+			"main": [
+				[
+					{
+						"node": "10% or Less Left?",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"10% or Less Left?": {
+			"main": [
+				[
+					{
+						"node": "Send Alert",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "Enough Left",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"meta": {
+		"templateCredsSetupCompleted": false
+	},
+	"tags": []
+}

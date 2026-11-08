@@ -1,0 +1,261 @@
+{
+	"name": "Create a QR code for every row in a Google Sheet",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## One QR code per sheet row\n\nReads a Google Sheet, creates a dynamic URL QR code in [OpenQR.io](https://openqr.io) for each row, saves the SVG to Google Drive and writes the code's ID and image link back to the row.\n\n### Setup\n1. Make a sheet with the columns **name**, **url**, **qr_code_id** and **image_url**. Names need 5 to 255 characters.\n2. Pick the sheet in **Read Rows** and **Write Back ID**.\n3. Pick a Drive folder in **Save to Drive**.\n4. Add your OpenQR.io API key: dashboard.openqr.io, user menu, API Keys.\n\n### Limits\nOpenQR.io allows 60 creates a minute. The loop sends 10 rows, then waits 10 seconds. Every code counts towards your plan, so check **qr_codes_remaining** with Account > Get Plan Usage before a big sheet.\n\nKeep **qr_code_id**: Update needs it to change where a code points later.",
+				"height": 560,
+				"width": 420
+			},
+			"id": "87b6c00d-a637-4f2d-9229-72d99bba8297",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-460, -260]
+		},
+		{
+			"parameters": {},
+			"id": "5144640f-5255-4507-a9d8-4f4c182d4517",
+			"name": "Start",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0]
+		},
+		{
+			"parameters": {
+				"resource": "sheet",
+				"operation": "read",
+				"documentId": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"sheetName": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"options": {}
+			},
+			"id": "25ba1eb6-9fe2-4f60-bc74-6765ff3b7f38",
+			"name": "Read Rows",
+			"type": "n8n-nodes-base.googleSheets",
+			"typeVersion": 4.7,
+			"position": [220, 0]
+		},
+		{
+			"parameters": {
+				"batchSize": 10,
+				"options": {}
+			},
+			"id": "dee1ae5a-4c9a-4600-b2e9-dc0fd2b6db84",
+			"name": "Loop Over Rows",
+			"type": "n8n-nodes-base.splitInBatches",
+			"typeVersion": 3,
+			"position": [440, 0]
+		},
+		{
+			"parameters": {
+				"resource": "qrCode",
+				"operation": "create",
+				"name": "={{ $json.name }}",
+				"type": "url",
+				"url": "={{ $json.url }}",
+				"options": {},
+				"design": {},
+				"downloadImage": true,
+				"binaryPropertyName": "data"
+			},
+			"id": "2e01e6ec-dc05-4230-87c7-fa83f61e4b6e",
+			"name": "Create QR Code",
+			"type": "@openqr-io/n8n-nodes-openqr.openQrIo",
+			"typeVersion": 1,
+			"position": [680, 80]
+		},
+		{
+			"parameters": {
+				"resource": "file",
+				"operation": "upload",
+				"inputDataFieldName": "data",
+				"name": "={{ $binary.data.fileName }}",
+				"driveId": {
+					"__rl": true,
+					"mode": "list",
+					"value": "My Drive"
+				},
+				"folderId": {
+					"__rl": true,
+					"mode": "list",
+					"value": "root",
+					"cachedResultName": "/ (Root folder)"
+				},
+				"options": {}
+			},
+			"id": "d41b136c-9f95-4769-a1e2-049ed0bfd56b",
+			"name": "Save to Drive",
+			"type": "n8n-nodes-base.googleDrive",
+			"typeVersion": 3,
+			"position": [900, 80]
+		},
+		{
+			"parameters": {
+				"resource": "sheet",
+				"operation": "update",
+				"documentId": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"sheetName": {
+					"__rl": true,
+					"mode": "list",
+					"value": ""
+				},
+				"columns": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"row_number": "={{ $('Loop Over Rows').item.json.row_number }}",
+						"qr_code_id": "={{ $('Create QR Code').item.json.id }}",
+						"image_url": "={{ $('Create QR Code').item.json.image }}"
+					},
+					"matchingColumns": ["row_number"],
+					"schema": [
+						{
+							"id": "row_number",
+							"displayName": "row_number",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": true,
+							"readOnly": true
+						},
+						{
+							"id": "qr_code_id",
+							"displayName": "qr_code_id",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": true
+						},
+						{
+							"id": "image_url",
+							"displayName": "image_url",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": true
+						}
+					]
+				},
+				"options": {}
+			},
+			"id": "a079c8de-c87a-46d8-a560-7bb3721b262c",
+			"name": "Write Back ID",
+			"type": "n8n-nodes-base.googleSheets",
+			"typeVersion": 4.7,
+			"position": [1120, 80]
+		},
+		{
+			"parameters": {
+				"amount": 10
+			},
+			"id": "dd795f8e-98b3-4998-9ebe-100166e51c51",
+			"name": "Wait 10 Seconds",
+			"type": "n8n-nodes-base.wait",
+			"typeVersion": 1.1,
+			"position": [1340, 80],
+			"webhookId": "d70e0116-ba4c-4fae-8cf5-1e2b0834bb61"
+		}
+	],
+	"connections": {
+		"Start": {
+			"main": [
+				[
+					{
+						"node": "Read Rows",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Read Rows": {
+			"main": [
+				[
+					{
+						"node": "Loop Over Rows",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Loop Over Rows": {
+			"main": [
+				[],
+				[
+					{
+						"node": "Create QR Code",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Create QR Code": {
+			"main": [
+				[
+					{
+						"node": "Save to Drive",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Save to Drive": {
+			"main": [
+				[
+					{
+						"node": "Write Back ID",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Write Back ID": {
+			"main": [
+				[
+					{
+						"node": "Wait 10 Seconds",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Wait 10 Seconds": {
+			"main": [
+				[
+					{
+						"node": "Loop Over Rows",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"meta": {
+		"templateCredsSetupCompleted": false
+	},
+	"tags": []
+}
