@@ -38,6 +38,11 @@
 	"publishConfig": {
 		"access": "public"
 	},
+	"release-it": {
+		"git": {
+			"tagName": "v${version}"
+		}
+	},
 	"n8n": {
 		"n8nNodesApiVersion": 1,
 		"strict": true,
