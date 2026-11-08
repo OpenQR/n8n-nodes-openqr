@@ -37,13 +37,13 @@ export const qrCodeOperations: INodeProperties[] = [
 				value: 'archive',
 				description:
 					'Archive a QR code. A dynamic code stops redirecting, so printed copies stop working.',
-				action: 'Archive a QR code',
+				action: 'Archive a QR code so a dynamic code stops working',
 			},
 			{
 				name: 'Create',
 				value: 'create',
 				description: 'Create and save a QR code. Counts towards the plan limit.',
-				action: 'Create a QR code',
+				action: 'Create and save a QR code',
 			},
 			{
 				name: 'Get',
@@ -56,7 +56,7 @@ export const qrCodeOperations: INodeProperties[] = [
 				value: 'getImage',
 				description:
 					'Download the image of a QR code as an SVG file, ready to attach to an email or upload',
-				action: 'Get the image of a QR code',
+				action: 'Download the SVG image of a QR code',
 			},
 			{
 				name: 'Get Many',
@@ -68,7 +68,7 @@ export const qrCodeOperations: INodeProperties[] = [
 				name: 'Preview',
 				value: 'preview',
 				description: 'Get the SVG image of a QR code without saving it',
-				action: 'Preview a QR code',
+				action: 'Preview a QR code image without saving it',
 			},
 			{
 				name: 'Save Preview',
@@ -82,7 +82,7 @@ export const qrCodeOperations: INodeProperties[] = [
 				value: 'update',
 				description:
 					'Change a QR code’s content, name, folder, domain or design. A dynamic code’s printed copies open the new content.',
-				action: 'Update a QR code',
+				action: 'Change the content or design of a QR code',
 			},
 		],
 		default: 'create',
@@ -232,6 +232,7 @@ const dataFields: INodeProperties[] = [
 		name: 'wifiSecurity',
 		type: 'options',
 		required: true,
+		description: 'How the network is protected. Most networks use WPA/WPA2.',
 		options: [
 			{ name: 'None (Open Network)', value: 'nopass' },
 			{ name: 'WEP', value: 'WEP' },
@@ -272,6 +273,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: 0,
 		placeholder: 'e.g. 54.6872',
+		description: 'Latitude in decimal degrees, from -90 to 90',
 		displayOptions: forContent(['geo', 'geo_static']),
 	},
 	{
@@ -282,6 +284,7 @@ const dataFields: INodeProperties[] = [
 		required: true,
 		default: 0,
 		placeholder: 'e.g. 25.2797',
+		description: 'Longitude in decimal degrees, from -180 to 180',
 		displayOptions: forContent(['geo', 'geo_static']),
 	},
 	{
@@ -344,6 +347,7 @@ const dataFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
+		description: 'First name on the contact card, up to 200 characters',
 		displayOptions: forContent(['vcard_static']),
 	},
 	{
@@ -352,6 +356,7 @@ const dataFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
+		description: 'Last name on the contact card, up to 200 characters',
 		displayOptions: forContent(['vcard_static']),
 	},
 	{
@@ -528,6 +533,7 @@ const getAllFields: INodeProperties[] = [
 					{ name: 'Archived', value: 'archived' },
 				],
 				default: 'public',
+				description: 'Which codes to list: active ones or archived ones',
 			},
 		],
 	},

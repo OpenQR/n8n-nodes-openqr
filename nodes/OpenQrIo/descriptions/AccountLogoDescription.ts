@@ -13,7 +13,7 @@ export const accountOperations: INodeProperties[] = [
 				value: 'getUsage',
 				description:
 					'Get the plan, how many QR codes it allows and how many can still be created. Check it before creating many codes.',
-				action: 'Get plan usage',
+				action: 'Get plan usage and remaining QR codes',
 			},
 		],
 		default: 'getUsage',

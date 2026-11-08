@@ -75,6 +75,8 @@ export function designCollection(show: Record<string, string[]>): INodePropertie
 				name: 'backgroundColor',
 				type: 'color',
 				default: '#FFFFFF',
+				description:
+					'Color behind the code. Keep it light and the code dark so phones can scan it.',
 			},
 			{
 				displayName: 'Corner Inner Color',
@@ -133,6 +135,7 @@ export function designCollection(show: Record<string, string[]>): INodePropertie
 				name: 'frameColor',
 				type: 'color',
 				default: '#000000',
+				description: 'Color of the frame around the code',
 			},
 			{
 				displayName: 'Frame Font Family',
@@ -155,18 +158,21 @@ export function designCollection(show: Record<string, string[]>): INodePropertie
 				name: 'frameText',
 				type: 'string',
 				default: 'SCAN ME',
+				description: 'Call to action shown in the frame',
 			},
 			{
 				displayName: 'Frame Text Background Color',
 				name: 'frameTextBackgroundColor',
 				type: 'color',
 				default: '#000000',
+				description: 'Color behind the frame text',
 			},
 			{
 				displayName: 'Frame Text Color',
 				name: 'frameTextColor',
 				type: 'color',
 				default: '#000000',
+				description: 'Color of the frame text',
 			},
 			{
 				displayName: 'Frame Text Size',
@@ -178,6 +184,7 @@ export function designCollection(show: Record<string, string[]>): INodePropertie
 					{ name: 'Large', value: 2 },
 				],
 				default: 0,
+				description: 'Size of the frame text',
 			},
 			{
 				displayName: 'Logo Background Color',

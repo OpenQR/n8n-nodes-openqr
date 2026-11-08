@@ -26,7 +26,8 @@ export class OpenQrIo implements INodeType {
 		group: ['output'],
 		version: [1],
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-		description: 'Official n8n node for OpenQR.io: create and manage QR codes',
+		description:
+			'Create dynamic and static QR codes, download them as SVG, and manage folders and logos in OpenQR.io',
 		defaults: {
 			name: 'OpenQR.io',
 		},

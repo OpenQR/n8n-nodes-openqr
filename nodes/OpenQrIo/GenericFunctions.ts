@@ -84,6 +84,15 @@ function itemSuffix(itemIndex: number | undefined): string {
 	return itemIndex === undefined ? '' : ` [item ${itemIndex}]`;
 }
 
+/** Names what an endpoint points at, e.g. `/qr-codes/km0yYX0/archive` is "QR code km0yYX0". */
+export function describeEndpoint(endpoint: string): string {
+	const [resource, id] = endpoint.replace(/^\/+/, '').split('/');
+	const names: Record<string, string> = { 'qr-codes': 'QR code', folders: 'folder' };
+	const name = names[resource];
+	if (name && id && id !== 'preview') return `${name} ${decodeURIComponent(id)}`;
+	return endpoint;
+}
+
 /** Builds the error shown in n8n: what happened in the message, how to fix it in the description. */
 export function buildApiError(
 	node: INode,
@@ -114,7 +123,7 @@ export function buildApiError(
 				'This happens when the plan limit is reached, when the key has no API access, or when the item belongs to another account. Archive unused QR codes or upgrade the plan if the limit is reached.';
 			break;
 		case 404:
-			message = `OpenQR.io could not find ${endpoint}`;
+			message = `OpenQR.io could not find ${describeEndpoint(endpoint)}`;
 			description = 'Check that the ID is correct and belongs to this account.';
 			break;
 		case 409:

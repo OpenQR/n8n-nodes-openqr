@@ -66,7 +66,7 @@ for (const [status, expected] of [
 	[400, /The name field is required\. \[item 2\]/],
 	[401, /did not accept the API key \[item 2\]/],
 	[403, /Plan limit reached \[item 2\]/],
-	[404, /could not find \/qr-codes\/x \[item 2\]/],
+	[404, /could not find QR code x \[item 2\]/],
 	[500, /could not complete the request \[item 2\]/],
 ]) {
 	test(`maps HTTP ${status} to a NodeApiError without retrying`, async () => {
@@ -214,4 +214,13 @@ test('an error on a later page is raised, not swallowed', async () => {
 		openQrApiRequestAllItems.call(ctx, '/qr-codes'),
 		/did not accept the API key/,
 	);
+});
+
+test('404 messages name the QR code or folder, not the path', () => {
+	const { describeEndpoint } = require('../dist/nodes/OpenQrIo/GenericFunctions.js');
+	assert.equal(describeEndpoint('/qr-codes/km0yYX0'), 'QR code km0yYX0');
+	assert.equal(describeEndpoint('/qr-codes/_4EeX8iV/archive'), 'QR code _4EeX8iV');
+	assert.equal(describeEndpoint('/folders/6/delete'), 'folder 6');
+	assert.equal(describeEndpoint('/qr-codes/preview/save'), '/qr-codes/preview/save');
+	assert.equal(describeEndpoint('/users'), '/users');
 });

@@ -14,5 +14,6 @@
 				"url": "https://github.com/OpenQR/n8n-nodes-openqr#readme"
 			}
 		]
-	}
+	},
+	"alias": ["QR", "QR code", "QR code generator", "barcode", "dynamic QR", "short link"]
 }
