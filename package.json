@@ -19,7 +19,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/OpenQR/n8n-nodes-openqr.git"
+		"url": "git+https://github.com/OpenQR/n8n-nodes-openqr.git"
 	},
 	"scripts": {
 		"build": "n8n-node build",
@@ -32,8 +32,12 @@
 		"test": "n8n-node build && node --test \"test/**/*.test.js\""
 	},
 	"files": [
-		"dist"
+		"dist",
+		"!dist/tsconfig.tsbuildinfo"
 	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"n8n": {
 		"n8nNodesApiVersion": 1,
 		"strict": true,
